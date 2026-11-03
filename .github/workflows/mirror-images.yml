@@ -1,0 +1,40 @@
+name: Mirror ERPNext V15 Images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  mirror:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Login to GHCR
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$TOKEN" | docker login ghcr.io \
+            -u "${{ github.actor }}" \
+            --password-stdin
+
+      - name: Mirror official images
+        env:
+          OWNER: ${{ github.repository_owner }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          owner=$(echo "$OWNER" | tr '[:upper:]' '[:lower:]')
+
+          while read -r source target; do
+            docker pull --platform linux/amd64 "$source"
+            docker tag "$source" "ghcr.io/$owner/$target"
+            docker push "ghcr.io/$owner/$target"
+          done <<'IMAGES'
+          docker.io/frappe/erpnext:v15.124.3 centi-erpnext:v15.124.3
+          docker.io/library/mariadb:11.8 centi-mariadb:11.8
+          docker.io/library/redis:8.6-alpine centi-redis:8.6-alpine
+          IMAGES
